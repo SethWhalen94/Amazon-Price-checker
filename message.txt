@@ -1,0 +1,9 @@
+Hello ${NAME}!
+
+This is a message from Seth's Python script.
+
+Have a great day!
+
+Yours Truly,
+
+Python
