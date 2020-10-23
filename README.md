@@ -1,5 +1,5 @@
 # Amazon-Price-checker
- Python script to check Amazon prices and send an email
+ Python script to check Amazon prices and sends an email whether there is a sale or not.
 
 This can be used in a Windows .bat file and Windows Task Scheduler to run the task at different intervals, e.g. Daily
 
