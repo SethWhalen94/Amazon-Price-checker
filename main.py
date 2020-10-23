@@ -13,6 +13,7 @@ ATTEMPTS = 10
 CONTACTS = os.getcwd() + '\\contacts.txt'
 SENDER = 'sender_email@email.com'           # Place the email you wish to send from
 SENDER_PASSWORD = 'password123'             # Password for sender email
+NO_SALE_PRICE = 529.99                      # Set the current price or max price or no sale price of the item
 
 #======================================
 # Method to get contacts from file
@@ -47,7 +48,7 @@ def check_price():
     print(title)
     print(price)
 
-    if (price < 529.99):            # Send an email if the product is on sale
+    if (price < NO_SALE_PRICE):            # Send an email if the product is on sale
         send_email(title, price)
     else:                           # send email even if product isn't on sale
         send_email(title, price)
@@ -76,7 +77,7 @@ def send_email(title, price = 0.0, error = None):
         message = f"Subject: {subject}\n\n{body}"
 
     # Send a daily email anyways if product isn't on sale
-    elif(price >= 529.99):
+    elif(price >= NO_SALE_PRICE):
         subject = 'No Sale Today - TCL 50" 5-Series'
         body = ("The price of the %s is still $%s.\nCheck the Amazon link if you want: %s" % (title, price, URL))
 
