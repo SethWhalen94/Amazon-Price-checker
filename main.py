@@ -1,19 +1,19 @@
-import requests
 from bs4 import BeautifulSoup
 import smtplib
 from string import Template
 import os
+from selenium import webdriver
+from webdriver_manager.chrome import ChromeDriverManager
 #======================================
 # GLOBALS
 #======================================
-URL = 'https://www.amazon.ca/TCL-Dolby-Vision-QLED-Smart/dp/B088517GLM'             # URL for TCL Series 5 50 inch TV, CHANGE AS NEEDED
 headers = {"User-Agent": 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
                          ' (KHTML, like Gecko) Chrome/86.0.4240.75 Safari/537.36'}
 ATTEMPTS = 10
 CONTACTS = os.getcwd() + '\\contacts.txt'
-SENDER = 'sender_email@email.com'           # Place the email you wish to send from
-SENDER_PASSWORD = 'password123'             # Password for sender email
-NO_SALE_PRICE = 529.99                      # Set the current price or max price or no sale price of the item
+SENDER = 'sender_email@email.com'                     # Place the email you wish to send from
+SENDER_PASSWORD = 'sender_email_password'             # Password for sender email
+URLS = os.getcwd() + '\\URLS.txt'
 
 #======================================
 # Method to get contacts from file
@@ -38,20 +38,28 @@ def read_message_template(filename):
 #=============================================
 # Method to retrieve URL info and check price
 #==============================================
-def check_price():
+def check_price(url, no_sale_price, browser):
 
-    page = requests.get(URL, headers = headers, timeout=None)
-    soup = BeautifulSoup(page.content, 'html.parser')
+    browser.get(url)
+    page = browser.page_source
+    soup = BeautifulSoup(page, 'html.parser')
     title = soup.find(id='productTitle').getText().strip()              # NOTE: This is depended on what website you are wanting to parse, check Chrome console for appropriate id, class, etc
     price = soup.find(id="priceblock_ourprice").getText().strip()[5:]   # Price of product as string, see above note
     price = float(price)                                                # Convert price string to float
+    deal_price = soup.find(id='priceblock_dealprice')                   # Check if there is a deal price
+
+    if (deal_price != None):                                            # If the deal price exists, then parse it from the HTML element
+        print("There is a deal!!!!!!")
+        deal_price = float(deal_price.getText().strip()[5:])            # Get text from span element, and convert price to a float
+
     print(title)
     print(price)
+    print(deal_price)
 
-    if (price < NO_SALE_PRICE):            # Send an email if the product is on sale
-        send_email(title, price)
-    else:                           # send email even if product isn't on sale
-        send_email(title, price)
+    if (deal_price != None):                               # Send an email if the product is on sale
+        send_email(title=title, price=deal_price, no_sale_price=no_sale_price, url=url)
+    else:                                                  # send email even if product isn't on sale
+        send_email(title=title, price=price, no_sale_price=no_sale_price, url=url)
 
 #======================================
 # Method to send email to contacts.
@@ -60,7 +68,7 @@ def check_price():
 # price - reduced price of item (float)
 # error - exception message (string)
 #======================================
-def send_email(title, price = 0.0, error = None):
+def send_email(title, url='', price = 0.0, error = None, no_sale_price = 0.0):
     server = smtplib.SMTP('smtp.gmail.com', port=587, timeout=None) # Connect to mail server
     emails = get_contacts(CONTACTS)
     # message_template = read_message_template('message.txt')
@@ -74,21 +82,18 @@ def send_email(title, price = 0.0, error = None):
     if(title == 'ERROR'):
         subject = 'Error in Amazon Price Python Script'
         body = ('There was an error when calling check_price() function\n%s' %error)
-        message = f"Subject: {subject}\n\n{body}"
 
     # Send a daily email anyways if product isn't on sale
-    elif(price >= NO_SALE_PRICE):
-        subject = 'No Sale Today - TCL 50" 5-Series'
-        body = ("The price of the %s is still $%s.\nCheck the Amazon link if you want: %s" % (title, price, URL))
-
-        message = f"Subject: {subject}\n\n{body}"
+    elif(price >= no_sale_price):
+        subject = 'No Sale Today - ' + title
+        body = ("The price of the %s is still $%s.\nCheck the Amazon link if you want: %s" % (title, price, url))
 
     # No error, price reduced, send regular email
     else:
-        subject = 'TV Price Reduced!!!! - TCL 50" 5-Series'
-        body = ("The price of the %s reduced to $%s!\nCheck the Amazon link %s" % (title, price, URL))
+        subject = 'Price Reduced!!!! - ' + title
+        body = ("The price of the %s reduced to $%s!\nCheck the Amazon link %s" % (title, price, url))
 
-        message = f"Subject: {subject}\n\n{body}"
+    message = ("Subject: %s\n\n%s" % (subject, body))
 
     for email in emails:
         server.sendmail(
@@ -108,17 +113,30 @@ def send_email(title, price = 0.0, error = None):
 #======================================
 
 if(__name__ == '__main__'):
-    for attempt in range(ATTEMPTS):             # Try getting the page content several times since page may return
-        try:                                    # Status = 200 if page skeleton is loaded before all content
-            sent = True
-            check_price()
-            break
 
-        except AttributeError as err:
-            print("An exception was raised")
-            sent = False
+    urls = []                                   # Array to hold URLs from URLS.txt
+    no_sale_prices = []                         # Array to hold no sale prices
+    sent = False
 
-    if(not sent):
-        send_email('ERROR')
+    with open(URLS, mode='r', encoding='utf-8') as url_file:
+        for url in url_file:
+            urls.append(url.split()[0])                 # add url to urls array
+            no_sale_prices.append(url.split()[1])       # add 'no sale price' to array
 
+    browser = webdriver.Chrome(ChromeDriverManager().install())  # Start selenium session
 
+    for prod in range(len(urls)):                   # Since the 2 arrays (urls and no_sale_prices) are the same length, have an iterator so we can pass them as seperate arguments to chack_price
+        for attempt in range(ATTEMPTS):             # Try getting the page content several times since page may return
+            try:                                    # Status = 200 if page skeleton is loaded before all content
+                sent = True
+                check_price(urls[prod], float(no_sale_prices[prod]), browser)
+                break
+
+            except AttributeError as err:
+                print("An exception was raised")
+                sent = False
+
+        if(not sent):
+            send_email('ERROR')
+
+    browser.close()                         # Close the Selenium browser
