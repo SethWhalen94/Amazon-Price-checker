@@ -10,10 +10,9 @@ from webdriver_manager.chrome import ChromeDriverManager
 headers = {"User-Agent": 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
                          ' (KHTML, like Gecko) Chrome/86.0.4240.75 Safari/537.36'}
 ATTEMPTS = 10
-CONTACTS = os.getcwd() + '\\contacts.txt'
-SENDER = 'sender_email@email.com'                     # Place the email you wish to send from
-SENDER_PASSWORD = 'sender_email_password'             # Password for sender email
-URLS = os.getcwd() + '\\URLS.txt'
+CONTACTS = os.path.join(os.path.dirname(__file__), 'contacts.txt')
+SENDER = {'email': 'sender@email.com', 'password': 'password1233'} # Place the email credentials here that you wish to send from
+URLS = os.path.join(os.path.dirname(__file__), 'URLS.txt')
 
 #======================================
 # Method to get contacts from file
@@ -76,7 +75,7 @@ def send_email(title, url='', price = 0.0, error = None, no_sale_price = 0.0):
     server.starttls()
     server.ehlo()
 
-    server.login(SENDER, SENDER_PASSWORD)   # Login to sender's email
+    server.login(SENDER['email'], SENDER['password'])   # Login to sender's email
 
     # there must have been an error, send an email
     if(title == 'ERROR'):
@@ -97,7 +96,7 @@ def send_email(title, url='', price = 0.0, error = None, no_sale_price = 0.0):
 
     for email in emails:
         server.sendmail(
-            from_addr=SENDER,
+            from_addr=SENDER['email'],
             to_addrs=email,
             msg=message
         )
