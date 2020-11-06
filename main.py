@@ -11,7 +11,7 @@ headers = {"User-Agent": 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/
                          ' (KHTML, like Gecko) Chrome/86.0.4240.75 Safari/537.36'}
 ATTEMPTS = 10
 CONTACTS = os.path.join(os.path.dirname(__file__), 'contacts.txt')
-SENDER = {'email': 'sender@email.com', 'password': 'password1233'} # Place the email credentials here that you wish to send from
+SENDER = {'email': 'my_email@e.com', 'password': 'my_password'}                      # Place the email credentials here that you wish to send from
 URLS = os.path.join(os.path.dirname(__file__), 'URLS.txt')
 
 #======================================
@@ -21,8 +21,11 @@ def get_contacts(filename):
     emails = []
 
     with open(filename, mode='r', encoding='utf-8') as contacts_file:
-        for contact in contacts_file:
-            emails.append(contact.split()[0])
+        lines = (line.rstrip() for line in contacts_file)  # All lines including the blank ones
+        lines = (line for line in lines if line)  # Non-blank lines
+        for contact in lines:
+            if(len(contact) > 0):
+                emails.append(contact.split()[0])
 
     return emails
 #======================================
@@ -118,9 +121,11 @@ if(__name__ == '__main__'):
     sent = False
 
     with open(URLS, mode='r', encoding='utf-8') as url_file:
-        for url in url_file:
-            urls.append(url.split()[0])                 # add url to urls array
-            no_sale_prices.append(url.split()[1])       # add 'no sale price' to array
+        lines = (line.rstrip() for line in url_file)        # All lines including the blank ones
+        lines = (line for line in lines if line)            # Non-blank lines
+        for url in lines:
+                urls.append(url.split()[0])                 # add url to urls array
+                no_sale_prices.append(url.split()[1])       # add 'no sale price' to array
 
     browser = webdriver.Chrome(ChromeDriverManager().install())  # Start selenium session
 
