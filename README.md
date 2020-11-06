@@ -1,4 +1,12 @@
 # Amazon-Price-checker
+To run this script you will need the following dependancies
+```
+Python version >=3.6
+selenium
+webdriver-manager
+bs4
+smtplib
+```
  Python script to check Amazon prices and sends an email whether there is a sale or not.
 
 This can be used in a Windows .bat file and Windows Task Scheduler to run the task at different intervals, e.g. Daily
