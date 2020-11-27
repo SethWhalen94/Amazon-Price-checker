@@ -4,6 +4,7 @@ from string import Template
 import os
 from selenium import webdriver
 from webdriver_manager.chrome import ChromeDriverManager
+import re
 #======================================
 # GLOBALS
 #======================================
@@ -11,7 +12,7 @@ headers = {"User-Agent": 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/
                          ' (KHTML, like Gecko) Chrome/86.0.4240.75 Safari/537.36'}
 ATTEMPTS = 10
 CONTACTS = os.path.join(os.path.dirname(__file__), 'contacts.txt')
-SENDER = {'email': 'my_email@e.com', 'password': 'my_password'}                      # Place the email credentials here that you wish to send from
+SENDER = {'email': 'email2@gmail.com', 'password': '123456'}                      # Place the email credentials here that you wish to send from
 URLS = os.path.join(os.path.dirname(__file__), 'URLS.txt')
 
 #======================================
@@ -46,22 +47,45 @@ def check_price(url, no_sale_price, browser):
     page = browser.page_source
     soup = BeautifulSoup(page, 'html.parser')
     title = soup.find(id='productTitle').getText().strip()              # NOTE: This is depended on what website you are wanting to parse, check Chrome console for appropriate id, class, etc
-    price = soup.find(id="priceblock_ourprice").getText().strip()[5:]   # Price of product as string, see above note
-    price = float(price)                                                # Convert price string to float
+
+
+    price = soup.find(id="priceblock_ourprice")
+    if(price != None):
+        price = price.getText().strip()[5:]                             # Price of product as string, see above note
+        price = float(price)                                            # Convert price string to float
+
+    coupon = None
+    try:
+        coupon = browser.find_element_by_css_selector(
+            "#vpcButton > div > label > span > span")  # Check if there is a coupon
+    except:
+        print("There is no coupon")
+    if(coupon):
+        print("There is a coupon")
+        coupon = browser.find_element_by_css_selector(
+            "#vpcButton > div > label > span > span")  # Check if there is a coupon
+        coupon = re.search('[0-9]{0,3}\.[0-9]{0,2}',coupon.text)        # Parse the coupon string for the price
+        coupon = float(coupon.group(0))                             # Get text from re.match object, set to float
+
+
     deal_price = soup.find(id='priceblock_dealprice')                   # Check if there is a deal price
 
     if (deal_price != None):                                            # If the deal price exists, then parse it from the HTML element
-        print("There is a deal!!!!!!")
+        #print("There is a deal!!!!!!")
         deal_price = float(deal_price.getText().strip()[5:])            # Get text from span element, and convert price to a float
 
-    print(title)
-    print(price)
-    print(deal_price)
+    #print(title)
+    #print(price)
+    #print(deal_price)
 
     if (deal_price != None):                               # Send an email if the product is on sale
         send_email(title=title, price=deal_price, no_sale_price=no_sale_price, url=url)
-    else:                                                  # send email even if product isn't on sale
+    elif (coupon != None):  # send email if there is a coupon
+        send_email(title=title, price=no_sale_price, no_sale_price=no_sale_price, url=url, coupon=coupon)
+    elif(price != None):                                                  # send email even if product isn't on sale
         send_email(title=title, price=price, no_sale_price=no_sale_price, url=url)
+    else:
+        send_email(title=title, price=no_sale_price, no_sale_price=no_sale_price, url=url)
 
 #======================================
 # Method to send email to contacts.
@@ -70,7 +94,7 @@ def check_price(url, no_sale_price, browser):
 # price - reduced price of item (float)
 # error - exception message (string)
 #======================================
-def send_email(title, url='', price = 0.0, error = None, no_sale_price = 0.0):
+def send_email(title, url='', price = 0.0, error = None, no_sale_price = 0.0, coupon=0.0):
     server = smtplib.SMTP('smtp.gmail.com', port=587, timeout=None) # Connect to mail server
     emails = get_contacts(CONTACTS)
     # message_template = read_message_template('message.txt')
@@ -86,12 +110,16 @@ def send_email(title, url='', price = 0.0, error = None, no_sale_price = 0.0):
         body = ('There was an error when calling check_price() function\n%s' %error)
 
     # Send a daily email anyways if product isn't on sale
-    elif(price >= no_sale_price):
+    if(price >= no_sale_price):
         subject = 'No Sale Today - ' + title
         body = ("The price of the %s is still $%s.\nCheck the Amazon link if you want: %s" % (title, price, url))
 
+    # there is a coupon
+    if(coupon > 0):
+        subject = ('There Is A Coupon For $%s : %s' %(coupon, title))
+        body = ("%s has a coupon worth $%s!\nCheck the Amazon link %s" % (title, coupon, url))
     # No error, price reduced, send regular email
-    else:
+    if(price < no_sale_price):
         subject = 'Price Reduced!!!! - ' + title
         body = ("The price of the %s reduced to $%s!\nCheck the Amazon link %s" % (title, price, url))
 
@@ -127,6 +155,9 @@ if(__name__ == '__main__'):
                 urls.append(url.split()[0])                 # add url to urls array
                 no_sale_prices.append(url.split()[1])       # add 'no sale price' to array
 
+    # Set options
+    options = webdriver.ChromeOptions()
+    options.add_argument('--headless')
     browser = webdriver.Chrome(ChromeDriverManager().install())  # Start selenium session
 
     for prod in range(len(urls)):                   # Since the 2 arrays (urls and no_sale_prices) are the same length, have an iterator so we can pass them as seperate arguments to chack_price
